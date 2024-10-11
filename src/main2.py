@@ -11,7 +11,7 @@ from datetime import datetime
 
 sensor = mpu6050(0x68)
 sensor.set_accel_range(mpu6050.ACCEL_RANGE_2G)
-sensor.set_filter_range()
+sensor.set_filter_range(filter_range=mpu6050.FILTER_BW_256)
 print("Accelerometer Alive")
 
 print("homing printer")

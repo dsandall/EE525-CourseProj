@@ -12,9 +12,9 @@ from datetime import datetime
 sensor = mpu6050(0x68)
 print("Accelerometer Alive")
 
-# print("homing printer")
-# os.system("echo G28 > ~/printer_data/comms/klippy.serial") # home printer
-# time.sleep(30)
+print("homing printer")
+os.system("echo G28 > ~/printer_data/comms/klippy.serial") # home printer
+time.sleep(30)
 
 # Generate a unique filename with the current date and time
 start_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

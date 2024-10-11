@@ -9,6 +9,8 @@ from mpu6050 import mpu6050
 import time
 from datetime import datetime
 
+END_TIME = 2.0
+
 sensor = mpu6050(0x68)
 sensor.set_accel_range(mpu6050.ACCEL_RANGE_2G)
 sensor.set_filter_range(filter_range=mpu6050.FILTER_BW_256)
@@ -64,5 +66,9 @@ with open(filename, mode='w', newline='') as file:
             # Schedule the next capture
             next_capture_time += desired_interval
 
+
+        if current_time >= END_TIME:
+            exit()
+            
         # time.sleep for a very short time to prevent high CPU usage
         time.sleep(0.0001)

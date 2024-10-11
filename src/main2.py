@@ -18,7 +18,7 @@ print("Accelerometer Alive")
 
 print("homing printer")
 os.system("echo G28 > ~/printer_data/comms/klippy.serial") # home printer
-time.sleep(30)
+time.sleep(20)
 
 # Generate a unique filename with the current date and time
 start_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -69,6 +69,6 @@ with open(filename, mode='w', newline='') as file:
 
         if current_time >= END_TIME:
             exit()
-            
+
         # time.sleep for a very short time to prevent high CPU usage
         time.sleep(0.0001)

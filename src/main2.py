@@ -67,7 +67,7 @@ with open(filename, mode='w', newline='') as file:
             next_capture_time += desired_interval
 
 
-        if current_time >= END_TIME:
+        if current_time >= start_timestamp + END_TIME:
             exit()
 
         # time.sleep for a very short time to prevent high CPU usage

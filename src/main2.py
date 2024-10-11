@@ -70,5 +70,5 @@ with open(filename, mode='w', newline='') as file:
         if current_time >= start_timestamp + END_TIME:
             exit()
 
-        # time.sleep for a very short time to prevent high CPU usage
-        time.sleep(0.0001)
+        # # time.sleep for a very short time to prevent high CPU usage
+        # time.sleep(0.0001)

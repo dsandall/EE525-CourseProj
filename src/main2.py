@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 
 sensor = mpu6050(0x68)
+sensor.set_accel_range(mpu6050.ACCEL_RANGE_2G)
 print("Accelerometer Alive")
 
 print("homing printer")

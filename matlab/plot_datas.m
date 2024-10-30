@@ -6,7 +6,7 @@ timestamps = NaT(length(files), 1);  % NaT = Not-a-Time, default value for datet
 % Loop through the files and extract date and time
 for i = 1:length(files)
     % Extract date and time portion from the filename (assumes the format is correct)
-    tokens = regexp(files(i).name, 'sensors_data_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})', 'tokens');
+    tokens = regexp(files(i).name, 'sensors_data_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2}).*', 'tokens');
     
     if ~isempty(tokens)
         % Convert to datetime, replacing hyphens with colons for the time part
@@ -37,7 +37,7 @@ accelX2 = data.("Accel X2");
 accelY2 = data.("Accel Y2");
 accelZ2_unfiltered = data.("Accel Z2");
 
-accelZ2 = filloutliers(accelZ2_unfiltered, 'linear', 'movmedian', 30);
+accelZ2 = filloutliers(accelZ2_unfiltered, 'linear', 'movmedian', 2);
 
 
 
@@ -61,10 +61,8 @@ distZ1 = cumtrapz(time, velocityZ1);
 velocityZ2 = cumtrapz(time, accelZ2);
 distZ2 = cumtrapz(time, velocityZ2);
 
-
-
-
 % Plotting
+
 MAX_SAMPLE_T = 4.4;
 
 % Acceleration Z for both sensors
@@ -91,14 +89,8 @@ legend;
 xlim([0 MAX_SAMPLE_T]);
 ylim([-0.6 0.6]);
 
-
-
-
-
-
-
 % Compute detrended Accel Z for both sensors
-firstIndex = find(time <= 0.4, 1, 'last');
+firstIndex = find(time <= 0.2, 1, 'last');
 medAccelZ1 = median(accelZ1(1:firstIndex));
 medAccelZ2 = median(accelZ2(1:firstIndex));
 

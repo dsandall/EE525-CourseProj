@@ -38,26 +38,30 @@ def collect_data(mpu, duration, initial_wait):
     Returns:
         list: Collected data records.
     """
+
+    sent_cmd = False
     data_records = []
     start_timestamp = time.perf_counter()
-    
-    # Collect data during the initial wait
-    time.sleep(initial_wait)  # Wait before starting the first data collection
 
     # Collect data for the specified duration
     end_capture_time = start_timestamp + duration
     while time.perf_counter() < end_capture_time:
         current_time = time.perf_counter()
         
-        # Get MPU data
+        # Get data
         mpu_data = mpu.get_accel_Z()
-        
-        # Get ADXL data
         adxl_data = mainADXL345.read_accelerometer_z()
         
         # Calculate elapsed time from the start
         elapsed_time = current_time - start_timestamp
-        
+        if elapsed_time > initial_wait and not sent_cmd:
+            # Send G-code command after the initial wait
+            print("Sending G-code command...")
+            os.system("echo G91 > ~/printer_data/comms/klippy.serial")  # Relative positioning mode
+            os.system("echo G1 X-100 F6000 > ~/printer_data/comms/klippy.serial")  # Move -100mm along the X-axis
+            # os.system("echo G90 > ~/printer_data/comms/klippy.serial")  # Absolute positioning mode
+            sent_cmd = True
+
         # Store data in the records list
         data_records.append([elapsed_time, 0, 0, mpu_data, 0, 0, adxl_data])
 
@@ -69,8 +73,8 @@ def write_data_to_csv(filename, data_records):
         writer = csv.writer(file)
         
         # Write the header for the CSV file
-        writer.writerow(["Time (s)", "Accel X1", "Accel Y1", "Accel Z1",
-                         "Accel X2", "Accel Y2", "Accel Z2"])
+        writer.writerow(["Time", "AccelX1", "AccelY1", "AccelZ1",
+                         "AccelX2", "AccelY2", "AccelZ2"])
         
         # Write all records at once
         writer.writerows(data_records)
@@ -92,14 +96,14 @@ def main():
     print("Starting data collection...")
     
     # Wait, then collect data
-    collect_data(mpu, END_TIME + INITIAL_WAIT, INITIAL_WAIT)
+    data_records = collect_data(mpu, END_TIME + INITIAL_WAIT, INITIAL_WAIT)
     
     # Data capture is complete
     print("Data capture complete.")
     mainADXL345.spi.close()
     
     # Write data to CSV after collection
-    write_data_to_csv(filename, collect_data(mpu, END_TIME, INITIAL_WAIT))
+    write_data_to_csv(filename, data_records)
 
 if __name__ == "__main__":
     main()

@@ -10,7 +10,7 @@ import mainADXL345
 import time
 from datetime import datetime
 
-END_TIME = 4.0
+END_TIME = 30.0
 INITIAL_WAIT = 0.5
 
 # Initialize ADXL345 and MPU6050
@@ -59,9 +59,9 @@ def collect_data(mpu, duration, initial_wait):
         if elapsed_time > initial_wait and not sent_cmd:
             # Send G-code command after the initial wait
             print("Sending G-code command...")
-            os.system("echo G91 > ~/printer_data/comms/klippy.serial")  # Relative positioning mode
-            os.system("echo G1 X-100 F6000 > ~/printer_data/comms/klippy.serial")  # Move -100mm along the X-axis
-            # os.system("echo G90 > ~/printer_data/comms/klippy.serial")  # Absolute positioning mode
+            # os.system("echo G91 > ~/printer_data/comms/klippy.serial")  # Relative positioning mode
+            # os.system("echo G1 X-100 F6000 > ~/printer_data/comms/klippy.serial")  # Move -100mm along the X-axis
+            ## os.system("echo G90 > ~/printer_data/comms/klippy.serial")  # Absolute positioning mode
             sent_cmd = True
 
         # Store data in the records list
@@ -92,7 +92,7 @@ def main():
 
     # Generate a unique filename with the current date and time
     start_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f'sensors_data_{start_time}_big_collect_V3.csv'
+    filename = f'sensors_data_{start_time}_stationary_30s.csv'
 
     # Start data collection
     print("Starting data collection...")

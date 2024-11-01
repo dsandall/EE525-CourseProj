@@ -2,9 +2,11 @@ import spidev
 import time
 
 # ADXL345 Register Addresses
+REG_BW_RATE = 0x2C
 REG_POWER_CTL = 0x2D
 REG_DATA_FORMAT = 0x31
 REG_DATAX0 = 0x32
+REG_OFSZ = 0x20
 
 # Initialize SPI
 spi = spidev.SpiDev()
@@ -50,21 +52,22 @@ def read_accelerometer_z():
     z0 = read_register(REG_DATAX0 + 4)  # Low byte
     z1 = read_register(REG_DATAX0 + 5)  # High byte
 
-    # Print raw register values for Z-axis, including binary representation
-    print(f"Raw Z-axis bytes: z0={z0} (binary: {bin(z0)}), z1={z1} (binary: {bin(z1)})")
+    # # Print raw register values for Z-axis, including binary representation
+    # print(f"Raw Z-axis bytes: z0={z0} (binary: {bin(z0)}), z1={z1} (binary: {bin(z1)})")
 
     # Combine high and low bytes
     z = (z1 << 8) | z0
-    print(f"Combined 16-bit Z value (before sign conversion): {z} (binary: {bin(z)})")
+    # print(f"Combined 16-bit Z value (before sign conversion): {z} (binary: {bin(z)})")
 
     # Convert to signed 16-bit values
     if z > 32767:
         z -= 65536
-    print(f"Signed 16-bit Z value: {z} (binary: {bin(z & 0xFFFF)})")  # Mask to keep 16-bit representation
+    # print(f"Signed 16-bit Z value: {z} (binary: {bin(z & 0xFFFF)})")  # Mask to keep 16-bit representation
 
     # Scale the output to m/s^2
-    scaled_z = z * 9.8 / 256.0
-    print(f"Scaled Z value (m/s^2): {scaled_z}")
+    scaled_z = z * 9.8 * .0039 # 9.8 m/s2 per g, .0039 g per LSB
+    # print(f"Scaled Z value (m/s^2): {scaled_z}")
+
 
     return scaled_z
 

@@ -1,133 +1,140 @@
+global earth_G;
+earth_G = 9.8;
+
+LOW_PASS_CUTOFF = 1.5;
+
+% Get list of sensor data files
 files = dir('../sensors_data*.csv'); 
 
-% Initialize an array to store the datetime values
-timestamps = NaT(length(files), 1);  % NaT = Not-a-Time, default value for datetime array
+% Find the most recent file and get its path
+[mostRecentFile, mostRecentFilePath] = getMostRecentFile(files);
 
-% Loop through the files and extract date and time
-for i = 1:length(files)
-    % Extract date and time portion from the filename (assumes the format is correct)
-    tokens = regexp(files(i).name, 'sensors_data_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2}).*', 'tokens');
-    
+% Display the most recent file path
+disp(['Most recent file: ', mostRecentFilePath]);
+
+% Extract timestamp of the most recent file
+mostRecentTimestamp = extractTimestamp(mostRecentFile);
+disp(['Timestamp of most recent file: ', datestr(mostRecentTimestamp)]);
+
+% Load data from the file
+data = readtable(mostRecentFilePath);
+
+% Extract and preprocess data variables
+[times, accelZ1, accelZ2] = extractDataVariables(data);
+
+% Calculate sampling frequency and time interval metrics
+calculateTimeMetrics(times);
+
+% Detrend and filter acceleration data
+accelZ1_detrended = detrendData(accelZ1, times);
+accelZ2_detrended = detrendData(accelZ2, times);
+disp(['mean mpu over all samples', string(mean(accelZ1))]);
+disp(['mean adxl over all samples', string(mean(accelZ2))]);
+
+% Plot acceleration and velocity data
+MAX_SAMPLE_T = 4.4;
+plotData(times, accelZ1, accelZ2, MAX_SAMPLE_T, 'Acceleration Z', 'm/s^2');
+plotData(times, cumtrapz(times, accelZ1), cumtrapz(times, accelZ2), MAX_SAMPLE_T, 'Velocity Z', 'm/s');
+
+% Plot detrended data
+plotData(times, accelZ1_detrended, accelZ2_detrended, MAX_SAMPLE_T, 'Detrended Acceleration Z', 'm/s^2');
+plotData(times, cumtrapz(times, accelZ1_detrended), cumtrapz(times, accelZ2_detrended), MAX_SAMPLE_T, 'Detrended Velocity Z', 'm/s');
+
+% % Apply a low-pass filter to the detrended data
+% [accelZ1_filtered, accelZ2_filtered] = applyLowPassFilter(accelZ1_detrended, accelZ2_detrended, times, LOW_PASS_CUTOFF);
+% plotData(times, accelZ1_filtered, accelZ2_filtered, MAX_SAMPLE_T, 'Low-Pass Filtered Acceleration Z', 'm/s^2');
+
+% --- Helper functions ---
+
+function [mostRecentFile, mostRecentFilePath] = getMostRecentFile(files)
+    % Find timestamps of all files
+    timestamps = NaT(length(files), 1);
+    for i = 1:length(files)
+        tokens = regexp(files(i).name, 'sensors_data_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2}).*', 'tokens');
+        if ~isempty(tokens)
+            dateStr = tokens{1}{1};
+            timeStr = strrep(tokens{1}{2}, '-', ':');
+            timestamps(i) = datetime([dateStr ' ' timeStr], 'InputFormat', 'yyyy-MM-dd HH:mm:ss');
+        end
+    end
+
+    % Find the most recent timestamp
+    [~, mostRecentIdx] = max(timestamps);
+    mostRecentFile = files(mostRecentIdx).name;
+    mostRecentFilePath = fullfile(files(mostRecentIdx).folder, mostRecentFile);
+end
+
+function timestamp = extractTimestamp(file)
+    % Extract the timestamp from a single filename
+    tokens = regexp(file, 'sensors_data_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2}).*', 'tokens');
     if ~isempty(tokens)
-        % Convert to datetime, replacing hyphens with colons for the time part
-        dateStr = tokens{1}{1};  % 'YYYY-MM-DD'
-        timeStr = strrep(tokens{1}{2}, '-', ':');  % 'HH:MM:SS'
-        timestamps(i) = datetime([dateStr ' ' timeStr], 'InputFormat', 'yyyy-MM-dd HH:mm:ss');
+        dateStr = tokens{1}{1};
+        timeStr = strrep(tokens{1}{2}, '-', ':');
+        timestamp = datetime([dateStr ' ' timeStr], 'InputFormat', 'yyyy-MM-dd HH:mm:ss');
+    else
+        timestamp = NaT; % Return Not-a-Time if format does not match
     end
 end
 
-% Find the most recent timestamp
-[~, mostRecentIdx] = max(timestamps);
+function [time, accelZ1, accelZ2] = extractDataVariables(data)
+    % Extract relevant variables from the data table
+    time = data.("Time");
+    accelZ1 = data.("AccelZ1");
+    accelZ2 = data.("AccelZ2");
+end
 
-% Get the filename of the most recent file
-mostRecentFile = files(mostRecentIdx).name;
+function calculateTimeMetrics(time)
+    % Calculate and display sampling frequency and time interval metrics
+    timeDiffs = diff(time);
+    sampleFrequency = 1 / mean(timeDiffs);
+    sampleStdDev = std(timeDiffs);
+    fprintf('Sample frequency: %.2f Hz\n', sampleFrequency);
+    fprintf('Average time interval: %.6f seconds\n', mean(timeDiffs));
+    fprintf('Time interval standard deviation: %.6f seconds\n', sampleStdDev);
+end
 
-% Display the most recent file
-disp(['Most recent file: ', mostRecentFile]);
+function truncatedData = detrendData(accelData, time)
+    global earth_G;
+    firstIndex = find(time <= 0.2, 1, 'last');
 
-% Full path to the most recent file
-mostRecentFilePath = fullfile(files(mostRecentIdx).folder, mostRecentFile);
+    % Detrend data based on the median of the first 0.2 seconds
+    medianAccel = median(accelData(1:firstIndex));
+    fprintf('Median Accel Z during first 0.2 seconds: %.4f m/s^2\n', medianAccel);
 
-% Adjust for new variable names
-time = data.("Time (s)");
-accelX1 = data.("Accel X1");
-accelY1 = data.("Accel Y1");
-accelZ1 = data.("Accel Z1");
-accelX2 = data.("Accel X2");
-accelY2 = data.("Accel Y2");
-accelZ2_unfiltered = data.("Accel Z2");
+    % remove median during calibration data period
+    detrendedData = accelData - medianAccel; 
 
-accelZ2 = filloutliers(accelZ2_unfiltered, 'linear', 'movmedian', 2);
+    % interpolate outliers
+    filteredData = filloutliers(detrendedData, 'linear', 'movmedian', 55);
 
+    % finally, truncate it
+    truncatedData = max(-.5*earth_G, min(filteredData, .5*earth_G));
 
+end
 
-% Compute the sample intervals (time differences between consecutive samples)
-timeDiffs = diff(time);  % Time differences between consecutive samples
+function plotData(time, data1, data2, maxSampleT, plotTitle, yLabel)
+    % Generalized plotting function
+    figure;
+    plot(time, data1, 'b', 'DisplayName', 'MPU6050');
+    hold on;
+    plot(time, data2, 'r', 'DisplayName', 'ADXL345');
+    xlabel('Time (s)');
+    ylabel(yLabel);
+    title([plotTitle, ' over Time for MPU6050 and ADXL345']);
+    legend;
+    xlim([0 maxSampleT]);
+    ylim([-2.5 2.5]);
+end
 
-% Calculate sample frequency
-sampleFrequency = 1 ./ mean(timeDiffs);  % Inverse of the mean time difference
-
-% Calculate precision metrics (standard deviation of time intervals)
-sampleStdDev = std(timeDiffs);
-
-% Display metrics in the terminal
-fprintf('Sample frequency: %.2f Hz\n', sampleFrequency);
-fprintf('Average time interval: %.6f seconds\n', mean(timeDiffs));
-fprintf('Time interval standard deviation: %.6f seconds\n', sampleStdDev);
-% Calculate integrals for acceleration to get velocity and displacement (for both sensors)
-velocityZ1 = cumtrapz(time, accelZ1);
-distZ1 = cumtrapz(time, velocityZ1);
-
-velocityZ2 = cumtrapz(time, accelZ2);
-distZ2 = cumtrapz(time, velocityZ2);
-
-% Plotting
-
-MAX_SAMPLE_T = 4.4;
-
-% Acceleration Z for both sensors
-figure;
-plot(time, accelZ1, 'b', 'DisplayName', 'MPU6050 Accel Z');
-hold on;
-plot(time, accelZ2, 'r', 'DisplayName', 'ADXL345 Accel Z');
-xlabel('Time (s)');
-ylabel('Acceleration Z (m/s^2)');
-title('Acceleration Z over Time for MPU6050 and ADXL345');
-legend;
-xlim([0 MAX_SAMPLE_T]);
-ylim([-2.5 2.5]);
-
-% Velocity Z for both sensors
-figure;
-plot(time, velocityZ1, 'b', 'DisplayName', 'MPU6050 Velocity Z');
-hold on;
-plot(time, velocityZ2, 'r', 'DisplayName', 'ADXL345 Velocity Z');
-xlabel('Time (s)');
-ylabel('Velocity Z (m/s)');
-title('Velocity Z over Time for MPU6050 and ADXL345');
-legend;
-xlim([0 MAX_SAMPLE_T]);
-ylim([-0.6 0.6]);
-
-% Compute detrended Accel Z for both sensors
-firstIndex = find(time <= 0.2, 1, 'last');
-medAccelZ1 = median(accelZ1(1:firstIndex));
-medAccelZ2 = median(accelZ2(1:firstIndex));
-
-accelZ1_detrended = accelZ1 - medAccelZ1;
-accelZ2_detrended = accelZ2 - medAccelZ2;
-
-% truncate ridiculous vals
-accelZ1_detrended = max(-2, min(accelZ1_detrended, 2));
-accelZ2_detrended = max(-2, min(accelZ2_detrended, 2));
-
-fprintf('Mean of MPU6050 Accel Z during first 0.2 seconds: %.4f m/s^2\n', medAccelZ1);
-fprintf('Mean of ADXL345 Accel Z during first 0.2 seconds: %.4f m/s^2\n', medAccelZ2);
-
-
-% Detrended Acceleration Z
-figure;
-plot(time, accelZ1_detrended, 'b', 'DisplayName', 'MPU6050 Detrended Accel Z');
-hold on;
-plot(time, accelZ2_detrended, 'r', 'DisplayName', 'ADXL345 Detrended Accel Z');
-xlabel('Time (s)');
-ylabel('Detrended Acceleration Z (m/s^2)');
-title('Detrended Acceleration Z over Time for MPU6050 and ADXL345');
-legend;
-xlim([0 MAX_SAMPLE_T]);
-ylim([-2.5 2.5]);
-
-% Detrended Velocity Z
-velocityZ1_detrended = cumtrapz(time, accelZ1_detrended);
-velocityZ2_detrended = cumtrapz(time, accelZ2_detrended);
-
-figure;
-plot(time, velocityZ1_detrended, 'b', 'DisplayName', 'MPU6050 Detrended Velocity Z');
-hold on;
-plot(time, velocityZ2_detrended, 'r', 'DisplayName', 'ADXL345 Detrended Velocity Z');
-xlabel('Time (s)');
-ylabel('Velocity Z (m/s)');
-title('Detrended Velocity Z over Time for MPU6050 and ADXL345');
-legend;
-xlim([0 MAX_SAMPLE_T]);
-ylim([-0.6 0.6]);
+function [filteredData1, filteredData2] = applyLowPassFilter(data1, data2, time, cutoffFreq)
+    % Apply a low-pass filter to data1 and data2
+    % Input: cutoffFreq - low-pass filter cutoff frequency in Hz
+    
+    % Calculate sample frequency
+    timeDiffs = diff(time);
+    sampleFrequency = 1 / mean(timeDiffs);
+    
+    % Apply the low-pass filter to both datasets
+    filteredData1 = lowpass(data1, cutoffFreq, sampleFrequency);
+    filteredData2 = lowpass(data2, cutoffFreq, sampleFrequency);
+end

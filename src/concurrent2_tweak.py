@@ -17,7 +17,7 @@ INITIAL_WAIT = 0.5
 def initialize_sensors():
     mainADXL345.write_register(mainADXL345.REG_POWER_CTL, 0x08)  # Measure mode
     mainADXL345.write_register(mainADXL345.REG_BW_RATE, 0x0F)  # Max internal sample rate 
-    mainADXL345.write_register(mainADXL345.REG_DATA_FORMAT, 0x00)  # +/- 2g, 10bit mode
+    mainADXL345.write_register(mainADXL345.REG_DATA_FORMAT, 0x03)  # +/- 2g, 10bit mode
     print("ADXL345 Initialized")
 
     mpu = mpu6050(0x68)
@@ -52,7 +52,6 @@ def collect_data(mpu, duration, initial_wait):
         # Get data
         mpu_data = mpu.get_accel_Z()
         adxl_data = mainADXL345.read_accelerometer_z()
-        adxl_data = max(-20, min(20, adxl_data))
         
         # Calculate elapsed time from the start
         elapsed_time = current_time - start_timestamp
@@ -65,7 +64,7 @@ def collect_data(mpu, duration, initial_wait):
             sent_cmd = True
 
         # Store data in the records list
-        data_records.append([elapsed_time, 0, 0, mpu_data, 0, 0, adxl_data])
+        data_records.append([elapsed_time, 0, 0, mpu_data, 0, 0, adxl_data*31.2/3.9]) #adjustment for larger range mode
 
     return data_records
 
@@ -92,7 +91,7 @@ def main():
 
     # Generate a unique filename with the current date and time
     start_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f'sensors_data_{start_time}_big_collect_V3.csv'
+    filename = f'sensors_data_{start_time}_max_range.csv'
 
     # Start data collection
     print("Starting data collection...")
